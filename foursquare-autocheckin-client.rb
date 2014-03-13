@@ -19,6 +19,10 @@ OptionParser.new do |opts|
   opts.on('--range RANGE', "IP range (will be passed directly to nmap)") do |c|
     options[:ip_ranges] = c
   end
+
+  opts.on('--once', "Will scan once and quit") do |c|
+    options[:once] = c
+  end
 end.parse!
 
 if options[:ping_endpoint].nil? or options[:ip_ranges].nil?
@@ -28,11 +32,15 @@ end
 # Main Body
 
 while true
-  parser = Nmap::Parser.parsescan("sudo nmap", "-sP #{options[:ip_ranges]}")
+  begin
+    puts "Starting.."
+    parser = Nmap::Parser.parsescan("sudo nmap", "-sP #{options[:ip_ranges]}")
 
-  puts "Nmap args: #{parser.session.scan_args}"
+    puts "Nmap args: #{parser.session.scan_args}"
 
-  mac_addresses = parser.hosts('up').collect { |host|
+    $mac_addresses = []
+
+    parser.hosts('up').each do |host|
       ip  = host.addr
       mac = host.mac_addr
 
@@ -42,14 +50,27 @@ while true
 
         puts "Found #{ip} / #{mac}"
 
-        mac.upcase!
+        $mac_addresses << mac.upcase
       end
-  }
+    end
 
-  mac_addresses_string = mac_addresses.join ","
+    if not $mac_addresses.nil? && $mac_adddresses.length > 0
+      mac_addresses_string = $mac_addresses.join ","
 
-  ping_endpoint_uri = URI.parse(options[:ping_endpoint] + "?mac_addresses=" + mac_addresses_string)
+      ping_uri_string = options[:ping_endpoint] + "?mac_addresses=" + mac_addresses_string
+      puts ping_uri_string
+      ping_endpoint_uri = URI.parse ping_uri_string
 
-  Net::HTTP.get_print(ping_endpoint_uri)
-  puts ""
+      Net::HTTP.get_print(ping_endpoint_uri)
+      puts ""
+    else
+      puts "No mac addresses found"
+    end
+
+    if options[:once]
+      exit
+    end
+  rescue
+    puts "An error occurred"
+  end
 end
