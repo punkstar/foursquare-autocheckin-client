@@ -59,10 +59,18 @@ while true
 
       ping_uri_string = options[:ping_endpoint] + "?mac_addresses=" + mac_addresses_string
       puts ping_uri_string
-      ping_endpoint_uri = URI.parse ping_uri_string
 
-      Net::HTTP.get_print(ping_endpoint_uri)
-      puts ""
+      uri = URI.parse ping_uri_string
+
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+      request = Net::HTTP::Get.new(uri.request_uri)
+
+      response = http.request(request)
+
+      puts response.body
     else
       puts "No mac addresses found"
     end
